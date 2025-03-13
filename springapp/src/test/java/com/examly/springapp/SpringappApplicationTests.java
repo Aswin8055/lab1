@@ -18,18 +18,27 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.TestPropertySource;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.web.client.RestTemplate;
+import com.examly.springapp.model.WeatherResponse;
+import com.examly.springapp.model.WeatherResponse.Main;
+import com.examly.springapp.model.WeatherResponse.Weather;
+import com.examly.springapp.model.WeatherResponse.Wind;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@TestPropertySource(locations = "classpath:application.properties")
+@TestPropertySource(locations = "classpath:application-test.properties")
 class SpringappApplicationTests {
 
 	@Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private RestTemplate restTemplate;
 
     private final String baseUrl = "/weather";
 
@@ -42,12 +51,34 @@ class SpringappApplicationTests {
     @Order(1)
     @Test
     void testGetWeatherByCity() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.get("/weather")
-        .param("city", "London")
-        .accept(MediaType.ALL))  // Accepts any response type
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.main.temp").exists()); // Example check for temperature field
+        // Create a mock response
+        WeatherResponse mockResponse = new WeatherResponse();
+        Main main = new Main();
+        main.setTemp(20.0);
+        main.setHumidity(65);
+        main.setPressure(1015);
+        mockResponse.setMain(main);
 
+        Weather[] weather = new Weather[1];
+        Weather weatherObj = new Weather();
+        weatherObj.setDescription("clear sky");
+        weather[0] = weatherObj;
+        mockResponse.setWeather(weather);
+
+        Wind wind = new Wind();
+        wind.setSpeed(5.0);
+        mockResponse.setWind(wind);
+
+        // Mock the RestTemplate response
+        when(restTemplate.getForObject(anyString(), eq(WeatherResponse.class)))
+            .thenReturn(mockResponse);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/weather")
+            .param("city", "London")
+            .accept(MediaType.ALL))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.main.temp").exists())
+            .andExpect(jsonPath("$.main.temp").value(20.0));
     }
 
     @Order(2)
